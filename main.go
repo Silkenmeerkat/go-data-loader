@@ -3,11 +3,12 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
+
+	"github.com/joho/godotenv"
 
 	_ "github.com/go-sql-driver/mysql"
 )
@@ -96,6 +97,8 @@ type Weight struct {
 	Value string `json:"value"`
 }
 
+var db *sql.DB
+
 func main() {
 	// Check if the directory path is provided as an argument
 	if len(os.Args) < 2 {
@@ -105,12 +108,16 @@ func main() {
 	// Get the directory path from command line argument
 	dirPath := os.Args[1]
 
-	// Connect to your PlanetScale MySQL database
-	db, err := sql.Open("mysql", "user:password@tcp(your-database-url:3306)/your-database-name")
+	err := godotenv.Load()
 	if err != nil {
-		log.Fatal("Failed to connect to the database:", err)
+		log.Fatal("failed to load env", err)
 	}
-	defer db.Close()
+
+	// Open a connection to the database
+	db, err = sql.Open("mysql", os.Getenv("DSN"))
+	if err != nil {
+		log.Fatal("failed to open db connection", err)
+	}
 
 	// Iterate over all files in the directory
 	err = filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
@@ -131,15 +138,24 @@ func main() {
 				return nil
 			}
 
-			// Insert the data into the MySQL database
-			_, err = db.Exec("INSERT INTO your_table (id, img, name, system_description, system_equipped_bulk, system_hardness, system_hp_max, system_level, system_price_gp, system_size, system_source, system_traits_rarity, system_usage_value, system_weight_value) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-				planet.ID, planet.Img, planet.Name, planet.System.Description.Value, planet.System.EquippedBulk.Value, planet.System.Hardness, planet.System.HP.Max, planet.System.Level.Value, planet.System.Price.Value.GP, planet.System.Size, planet.System.Source.Value, planet.System.Traits.Rarity, planet.System.Usage.Value, planet.System.Weight.Value)
-			if err != nil {
-				log.Println("Failed to insert data into database:", path, "-", err)
-				return nil
-			}
+			// // Insert the data into the MySQL database
+			// _, err = db.Exec("INSERT INTO your_table (id, img, name, system_description, system_equipped_bulk, system_hardness, system_hp_max, system_level, system_price_gp, system_size, system_source, system_traits_rarity, system_usage_value, system_weight_value) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+			// 	planet.ID, planet.Img, planet.Name, planet.System.Description.Value, planet.System.EquippedBulk.Value, planet.System.Hardness, planet.System.HP.Max, planet.System.Level.Value, planet.System.Price.Value.GP, planet.System.Size, planet.System.Source.Value, planet.System.Traits.Rarity, planet.System.Usage.Value, planet.System.Weight.Value)
+			// if err != nil {
+			// 	log.Println("Failed to insert data into database:", path, "-", err)
+			// 	return nil
+			// }
 
-			fmt.Println("Data inserted successfully from file:", path)
+			//TODO
+			//1. Check if item exists (by name!)
+			// rows, err := db.Query(`SELECT * FROM items WHERE items.name="Abadar's Flawless Scale"`)
+			// if err != nil {
+			// 	log.Fatal("Failed to execute query:", err)
+			// }
+			// defer rows.Close()
+			// fmt.Println(rows)
+
+			//fmt.Println("Data inserted successfully from file:", path)
 		}
 		return nil
 	})
@@ -147,4 +163,24 @@ func main() {
 	if err != nil {
 		log.Fatal("Failed to iterate over files in directory:", err)
 	}
+
+	query := `SELECT * FROM items where id = 'Abadar's Flawless Scale'`
+
+	err = db.QueryRow(query).Scan()
+	if err != nil {
+		log.Fatal("fucked it up son", err)
+	}
+	name := "Abadar's Flawless Scale"
+
+	checkForExisting(name)
+}
+
+func checkForExisting(name) {
+	query := "SELECT * FROM items"
+	res, err := db.Query(query)
+	defer res.Close()
+	if err != nil {
+		log.Fatal("fuckedUPSoon")
+	}
+
 }
