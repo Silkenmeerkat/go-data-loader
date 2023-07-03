@@ -164,23 +164,23 @@ func main() {
 		log.Fatal("Failed to iterate over files in directory:", err)
 	}
 
-	query := `SELECT * FROM items where id = 'Abadar's Flawless Scale'`
+	query := `SELECT * FROM items'`
 
 	err = db.QueryRow(query).Scan()
 	if err != nil {
 		log.Fatal("fucked it up son", err)
 	}
-	name := "Abadar's Flawless Scale"
+	// name := "Abadar's Flawless Scale"
 
-	checkForExisting(name)
+	// checkForExisting(name)
 }
 
-func checkForExisting(name) {
-	query := "SELECT * FROM items"
-	res, err := db.Query(query)
-	defer res.Close()
-	if err != nil {
-		log.Fatal("fuckedUPSoon")
-	}
+// func checkForExisting(name) {
+// 	query := "SELECT * FROM items"
+// 	res, err := db.Query(query)
+// 	defer res.Close()
+// 	if err != nil {
+// 		log.Fatal("fuckedUPSoon")
+// 	}
 
-}
+// }
