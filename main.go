@@ -6,184 +6,145 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"net/http"
 	"os"
-	"strings"
+	"path/filepath"
 
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/joho/godotenv"
 )
 
-var db *sql.DB
+// Define the structure of your JSON data
+type PlanetData struct {
+	ID     string `json:"_id"`
+	Img    string `json:"img"`
+	Name   string `json:"name"`
+	System System `json:"system"`
+	Type   string `json:"type"`
+}
+
+type System struct {
+	BaseItem              interface{}           `json:"baseItem"`
+	ContainerID           interface{}           `json:"containerId"`
+	Description           Description           `json:"description"`
+	EquippedBulk          EquippedBulk          `json:"equippedBulk"`
+	Hardness              int                   `json:"hardness"`
+	HP                    HP                    `json:"hp"`
+	Level                 Level                 `json:"level"`
+	NegateBulk            NegateBulk            `json:"negateBulk"`
+	PreciousMaterial      PreciousMaterial      `json:"preciousMaterial"`
+	PreciousMaterialGrade PreciousMaterialGrade `json:"preciousMaterialGrade"`
+	Price                 Price                 `json:"price"`
+	Quantity              int                   `json:"quantity"`
+	Rules                 []interface{}         `json:"rules"`
+	Size                  string                `json:"size"`
+	Source                Source                `json:"source"`
+	StackGroup            interface{}           `json:"stackGroup"`
+	Traits                Traits                `json:"traits"`
+	Usage                 Usage                 `json:"usage"`
+	Weight                Weight                `json:"weight"`
+}
+
+type Description struct {
+	Value string `json:"value"`
+}
+
+type EquippedBulk struct {
+	Value string `json:"value"`
+}
+
+type HP struct {
+	BrokenThreshold int `json:"brokenThreshold"`
+	Max             int `json:"max"`
+	Value           int `json:"value"`
+}
+
+type Level struct {
+	Value int `json:"value"`
+}
+
+type NegateBulk struct {
+	Value string `json:"value"`
+}
+
+type PreciousMaterial struct {
+	Value string `json:"value"`
+}
+
+type PreciousMaterialGrade struct {
+	Value string `json:"value"`
+}
+
+type Price struct {
+	Value struct {
+		GP int `json:"gp"`
+	} `json:"value"`
+}
+
+type Source struct {
+	Value string `json:"value"`
+}
+
+type Traits struct {
+	Rarity string   `json:"rarity"`
+	Value  []string `json:"value"`
+}
+
+type Usage struct {
+	Value string `json:"value"`
+}
+
+type Weight struct {
+	Value string `json:"value"`
+}
 
 func main() {
-	// Load in the `.env` file
-	err := godotenv.Load()
+	// Check if the directory path is provided as an argument
+	if len(os.Args) < 2 {
+		log.Fatal("Please provide the absolute path to the directory as an argument.")
+	}
+
+	// Get the directory path from command line argument
+	dirPath := os.Args[1]
+
+	// Connect to your PlanetScale MySQL database
+	db, err := sql.Open("mysql", "user:password@tcp(your-database-url:3306)/your-database-name")
 	if err != nil {
-		log.Fatal("failed to load env", err)
+		log.Fatal("Failed to connect to the database:", err)
 	}
-	db, err = sql.Open("mysql", os.Getenv("DSN"))
-	if err != nil {
-		log.Fatal("failed to open db connection", err)
-	}
-	// GitHub repository URL
-	repoURL := "https://api.github.com/repos/foundryvtt/pf2e/contents/packs/equipment"
+	defer db.Close()
 
-	// Make the initial request to get the first page
-	resp, err := http.Get(repoURL)
-	if err != nil {
-		fmt.Println("Error making HTTP request:", err)
-		return
-	}
-	defer resp.Body.Close()
-
-	// Check the response status code
-	if resp.StatusCode != http.StatusOK {
-		fmt.Println("Unexpected response status code:", resp.StatusCode)
-		return
-	}
-
-	// Read the response body
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println("Error reading response body:", err)
-		return
-	}
-
-	// Parse the response JSON
-	var files []struct {
-		ID     string `json:"_id"`
-		Img    string `json:"img"`
-		Name   string `json:"name"`
-		System struct {
-			BaseItem    interface{} `json:"baseItem"`
-			ContainerID interface{} `json:"containerId"`
-			Description struct {
-				Value string `json:"value"`
-			} `json:"description"`
-			EquippedBulk struct {
-				Value string `json:"value"`
-			} `json:"equippedBulk"`
-			Hardness int `json:"hardness"`
-			HP       struct {
-				BrokenThreshold int `json:"brokenThreshold"`
-				Max             int `json:"max"`
-				Value           int `json:"value"`
-			} `json:"hp"`
-			Level struct {
-				Value int `json:"value"`
-			} `json:"level"`
-			NegateBulk struct {
-				Value string `json:"value"`
-			} `json:"negateBulk"`
-			PreciousMaterial struct {
-				Value string `json:"value"`
-			} `json:"preciousMaterial"`
-			PreciousMaterialGrade struct {
-				Value string `json:"value"`
-			} `json:"preciousMaterialGrade"`
-			Price struct {
-				Value struct {
-					GP int `json:"gp"`
-				} `json:"value"`
-			} `json:"price"`
-			Quantity int           `json:"quantity"`
-			Rules    []interface{} `json:"rules"`
-			Size     string        `json:"size"`
-			Source   struct {
-				Value string `json:"value"`
-			} `json:"source"`
-			StackGroup interface{} `json:"stackGroup"`
-			Traits     struct {
-				Rarity string   `json:"rarity"`
-				Value  []string `json:"value"`
-			} `json:"traits"`
-			Usage struct {
-				Value string `json:"value"`
-			} `json:"usage"`
-			Weight struct {
-				Value string `json:"value"`
-			} `json:"weight"`
-		} `json:"system"`
-		Type string `json:"type"`
-	}
-
-	if err := json.Unmarshal(body, &files); err != nil {
-		fmt.Println("Error parsing JSON:", err)
-		return
-	}
-
-	// Loop over the files
-	for _, file := range files {
-		// Process each file here
-		fmt.Println("File:", file.Name)
-	}
-
-	// Check if there are more pages
-	linkHeader := resp.Header.Get("Link")
-	if linkHeader != "" {
-		// Extract the next page URL from the Link header
-		nextPageURL := getNextPageURL(linkHeader)
-
-		// Make requests for the subsequent pages
-		for nextPageURL != "" {
-			resp, err := http.Get(nextPageURL)
+	// Iterate over all files in the directory
+	err = filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
+		// Skip directories and process only JSON files
+		if !info.IsDir() && filepath.Ext(path) == ".json" {
+			// Read the JSON file
+			file, err := ioutil.ReadFile(path)
 			if err != nil {
-				fmt.Println("Error making HTTP request:", err)
-				return
+				log.Println("Failed to read file:", path, "-", err)
+				return nil
 			}
-			defer resp.Body.Close()
 
-			// Read the response body
-			body, err := ioutil.ReadAll(resp.Body)
+			// Parse JSON data into a struct
+			var planet PlanetData
+			err = json.Unmarshal(file, &planet)
 			if err != nil {
-				fmt.Println("Error reading response body:", err)
-				return
+				log.Println("Failed to parse JSON:", path, "-", err)
+				return nil
 			}
 
-			// Parse the response JSON
-			if err := json.Unmarshal(body, &files); err != nil {
-				fmt.Println("Error parsing JSON:", err)
-				return
+			// Insert the data into the MySQL database
+			_, err = db.Exec("INSERT INTO your_table (id, img, name, system_description, system_equipped_bulk, system_hardness, system_hp_max, system_level, system_price_gp, system_size, system_source, system_traits_rarity, system_usage_value, system_weight_value) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+				planet.ID, planet.Img, planet.Name, planet.System.Description.Value, planet.System.EquippedBulk.Value, planet.System.Hardness, planet.System.HP.Max, planet.System.Level.Value, planet.System.Price.Value.GP, planet.System.Size, planet.System.Source.Value, planet.System.Traits.Rarity, planet.System.Usage.Value, planet.System.Weight.Value)
+			if err != nil {
+				log.Println("Failed to insert data into database:", path, "-", err)
+				return nil
 			}
 
-			// Loop over the files in the subsequent page
-			for _, file := range files {
-				fmt.Println("Name: ", file.Name)
-				// // Process each file here
-				// fmt.Println("File:", file.Name)
-				// fmt.Println("URL:", file.URL)
-			}
-
-			// Extract the next page URL for the next iteration
-			nextPageURL = getNextPageURL(resp.Header.Get("Link"))
+			fmt.Println("Data inserted successfully from file:", path)
 		}
-	}
-}
+		return nil
+	})
 
-func getNextPageURL(linkHeader string) string {
-	// Extracts the next page URL from the Link header
-	links := parseLinkHeader(linkHeader)
-	if links["next"] != "" {
-		return links["next"]
+	if err != nil {
+		log.Fatal("Failed to iterate over files in directory:", err)
 	}
-	return ""
-}
-
-func parseLinkHeader(linkHeader string) map[string]string {
-	// Parses the Link header and returns a map of URLs
-	links := make(map[string]string)
-	entries := strings.Split(linkHeader, ",")
-	for _, entry := range entries {
-		parts := strings.Split(strings.TrimSpace(entry), ";")
-		if len(parts) < 2 {
-			continue
-		}
-		url := strings.Trim(parts[0], "<>")
-		rel := strings.Trim(parts[1], " ")
-		rel = strings.TrimPrefix(rel, "rel=")
-		rel = strings.Trim(rel, "\"")
-		links[rel] = url
-	}
-	return links
 }
